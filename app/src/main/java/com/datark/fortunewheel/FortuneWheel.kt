@@ -66,7 +66,7 @@ fun FortuneWheel(
     val gestureModifier = Modifier.pointerInput(labels.size) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Main)
-            rotation.stop()
+            scope.launch { rotation.stop() }
 
             val cx = size.width / 2f
             val cy = size.height / 2f
@@ -91,7 +91,8 @@ fun FortuneWheel(
 
                 if (delta != 0f) {
                     target += delta
-                    rotation.snapTo(target)
+                    val snapTarget = target
+                    scope.launch { rotation.snapTo(snapTarget) }
                     change.consume()
                 }
 
@@ -102,19 +103,13 @@ fun FortuneWheel(
             }
 
             val initialVDegPerSec = velocityDegPerMs * 1000f
-            if (abs(initialVDegPerSec) > 60f) {
-                scope.launch {
+            scope.launch {
+                if (abs(initialVDegPerSec) > 60f) {
                     rotation.animateDecay(
                         initialVelocity = initialVDegPerSec,
                         animationSpec = exponentialDecay(frictionMultiplier = 0.6f)
                     )
-                    val idx = winningIndex(rotation.value, labels.size)
-                    if (idx != lastReportedIndex) {
-                        lastReportedIndex = idx
-                        onSpinFinished(idx)
-                    }
                 }
-            } else {
                 val idx = winningIndex(rotation.value, labels.size)
                 if (idx != lastReportedIndex) {
                     lastReportedIndex = idx
