@@ -68,7 +68,7 @@ fun FortuneWheelApp() {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Przeciągnij koło palcem, aby zakręcić",
+                text = "Przeciągnij koło palcem lub stuknij w środek, aby zakręcić",
                 style = MaterialTheme.typography.bodyMedium
             )
 

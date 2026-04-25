@@ -1,7 +1,9 @@
 package com.datark.fortunewheel
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -29,8 +31,10 @@ import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.random.Random
 
 private val WheelColors = listOf(
     Color(0xFFEF4444),
@@ -70,11 +74,19 @@ fun FortuneWheel(
 
             val cx = size.width / 2f
             val cy = size.height / 2f
+            val wheelRadius = min(cx, cy)
+            val centerHitRadius = wheelRadius * 0.18f
+
+            val downIsCenter = hypot(
+                (down.position.x - cx).toDouble(),
+                (down.position.y - cy).toDouble()
+            ) <= centerHitRadius
 
             var lastAngle = angleDeg(down.position, cx, cy)
             var lastTime = down.uptimeMillis
             var velocityDegPerMs = 0f
             var target = rotation.value
+            var totalAngularMovement = 0f
 
             while (true) {
                 val event = awaitPointerEvent(PointerEventPass.Main)
@@ -85,6 +97,8 @@ fun FortuneWheel(
                 val angle = angleDeg(change.position, cx, cy)
                 val delta = shortestDelta(lastAngle, angle)
                 val dt = (now - lastTime).coerceAtLeast(1L)
+
+                totalAngularMovement += abs(delta)
 
                 val instantV = delta / dt.toFloat()
                 velocityDegPerMs = velocityDegPerMs * 0.6f + instantV * 0.4f
@@ -102,18 +116,41 @@ fun FortuneWheel(
                 if (!change.pressed) break
             }
 
-            val initialVDegPerSec = velocityDegPerMs * 1000f
-            scope.launch {
-                if (abs(initialVDegPerSec) > 60f) {
-                    rotation.animateDecay(
-                        initialVelocity = initialVDegPerSec,
-                        animationSpec = exponentialDecay(frictionMultiplier = 0.6f)
+            val isTap = totalAngularMovement < 3f
+
+            if (isTap && downIsCenter) {
+                scope.launch {
+                    val durationMs = Random.nextInt(3000, 10001)
+                    val rotations = Random.nextInt(8, 16)
+                    val randomOffset = Random.nextFloat() * 360f
+                    val targetRotation = rotation.value + rotations * 360f + randomOffset
+                    rotation.animateTo(
+                        targetValue = targetRotation,
+                        animationSpec = tween(
+                            durationMillis = durationMs,
+                            easing = CubicBezierEasing(0.08f, 0.85f, 0.15f, 1f)
+                        )
                     )
+                    val idx = winningIndex(rotation.value, labels.size)
+                    if (idx != lastReportedIndex) {
+                        lastReportedIndex = idx
+                        onSpinFinished(idx)
+                    }
                 }
-                val idx = winningIndex(rotation.value, labels.size)
-                if (idx != lastReportedIndex) {
-                    lastReportedIndex = idx
-                    onSpinFinished(idx)
+            } else {
+                val initialVDegPerSec = velocityDegPerMs * 1000f * 1.8f
+                scope.launch {
+                    if (abs(initialVDegPerSec) > 60f) {
+                        rotation.animateDecay(
+                            initialVelocity = initialVDegPerSec,
+                            animationSpec = exponentialDecay(frictionMultiplier = 0.18f)
+                        )
+                    }
+                    val idx = winningIndex(rotation.value, labels.size)
+                    if (idx != lastReportedIndex) {
+                        lastReportedIndex = idx
+                        onSpinFinished(idx)
+                    }
                 }
             }
         }
@@ -186,12 +223,17 @@ fun FortuneWheel(
         )
         drawCircle(
             color = Color(0xFF111827),
-            radius = radius * 0.08f,
+            radius = radius * 0.13f,
             center = center
         )
         drawCircle(
             color = Color.White,
-            radius = radius * 0.04f,
+            radius = radius * 0.10f,
+            center = center
+        )
+        drawCircle(
+            color = Color(0xFFDC2626),
+            radius = radius * 0.05f,
             center = center
         )
 
