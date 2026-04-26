@@ -33,6 +33,7 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -264,10 +265,13 @@ private fun shortestDelta(from: Float, to: Float): Float {
 
 private fun winningIndex(rotationDeg: Float, n: Int): Int {
     if (n <= 0) return 0
+    // Pointer sits at the top (-90 deg). Segment i's center, after rotating
+    // the wheel by R, lands at (-90 + i*sweep + R). The winning segment
+    // minimizes |i*sweep + R| (mod 360), so i ~= -R/sweep -- round to the
+    // nearest integer, then bring it into [0, n).
     val sweep = 360f / n
-    val raw = -rotationDeg / sweep
-    val idx = ((raw % n) + n) % n
-    return idx.toInt() % n
+    val rounded = (-rotationDeg / sweep).roundToInt()
+    return ((rounded % n) + n) % n
 }
 
 private fun ellipsize(text: String, paint: android.graphics.Paint, maxWidth: Float): String {
